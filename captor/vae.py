@@ -68,8 +68,8 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
     def train_vae(self,X_train0):
-        scaler = MinMaxScaler()
-        X_train=scaler.fit_transform(X_train0)
+        self.scaler = MinMaxScaler()
+        X_train=self.scaler.fit_transform(X_train0)
                 
         # Using an Adam Optimizer with lr = 0.1
         optimizer = torch.optim.Adam(self.parameters(),
@@ -77,7 +77,7 @@ class VariationalAutoencoder(nn.Module):
                                     weight_decay = 1e-6)
 
         epochs = self.args.epoch
-        batch = 2500
+        batch = self.args.batch
         vec = np.array([i for i in range(X_train.shape[0])])
         XD = X_train
         total_data = int(XD.shape[0] / batch)
@@ -118,8 +118,7 @@ class VariationalAutoencoder(nn.Module):
                 print(f"Best model with loss {average_loss} being saved at epoch {epoch}")
                 
                 # Saving best model
-                if self.args.save:
-                    torch.save(self.state_dict(), f'{self.model_path}/{self.args.dataset}/vae-model.pth')  #
+                torch.save(self.state_dict(), f'{self.model_path}/{self.args.dataset}/vae-model.pth')  #
                 best_loss = average_loss
                 count_epoch = 0
             
@@ -128,5 +127,32 @@ class VariationalAutoencoder(nn.Module):
                 break
 
             count_epoch += 1
+        
+        self.load_state_dict(torch.load(f'{self.model_path}/{self.args.dataset}/vae-model.pth'))
+        
+    def test(self,data):
+        """ Used trained model and return reconstruction loss for given dataset 
+
+        Args:
+            data (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        self.eval()
+        self.loss_function = torch.nn.MSELoss(reduction='none').to(device)
+
+        ypred=[]
+        test=self.scaler.transform(data)
+        for i in range(math.ceil(data.shape[0]/self.args.batch)):
+            XB=test[i*self.args.batch:(i+1)*self.args.batch]
+            XBT=torch.FloatTensor(XB).to(device)
+            reconstructed = self(XBT)
+            res=torch.mean(self.loss_function(reconstructed, XBT),1)
+            #print(res.shape)
+            ypred.extend(res.cpu().detach().numpy().flatten().tolist())
+        scoresTest=np.array(ypred)
+        
+        return scoresTest
         
         

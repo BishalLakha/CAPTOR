@@ -1,9 +1,9 @@
 import numpy as np
 from sklearn import metrics
-from sklearn.metrics import confusion_matrix, log_loss, classification_report
+from sklearn.metrics import confusion_matrix, classification_report,roc_auc_score
 
 
-def treshold(scores,alpha):
+def get_treshold(scores,alpha):
     return np.quantile(scores, alpha)
 
 def labelAnomaly(scores, threshold):
@@ -38,5 +38,24 @@ def calculate_offline_performance_metrics(edge_scores, labels):
     return {'AUC': auc, 'FPR': fpr, 'TPR': tpr, 'true_positive': tp, 'false_positive': fp, 'true_negative': tn, 'false_negative': fn}
 
 
-def calculate_realtime_performance(train_score,test_score,percentile):
-    pass
+def calculate_realtime_performance(train_score,test_score,percentile,labels):
+    
+    threshold = get_treshold(train_score,percentile)
+    y_pred=labelAnomaly(-test_score, threshold)
+    
+    print('Area Under the ROC')
+    print(roc_auc_score(labels,y_pred)) 
+       
+    print("\n\n======= CLASSIFICATION REPORT =========\n")
+    print(classification_report(labels, y_pred))
+    
+    tn, fp, fn, tp = confusion_matrix(labels, y_pred, labels=[False, True]).ravel()
+    cm = confusion_matrix(labels, y_pred, labels=[False, True])
+    print("Confusion Matrix: \n", cm)
+    fpr = fp / (fp + tn)
+    tpr = tp / (tp + fn)
+    print("FPR: ", fpr)
+    print("TPR: ", tpr)
+    
+    return {'FPR': fpr, 'TPR': tpr, 'true_positive': tp, 'false_positive': fp, 'true_negative': tn, 'false_negative': fn}
+

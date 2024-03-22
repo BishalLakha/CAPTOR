@@ -38,7 +38,9 @@ def parse_args():
     args.add_argument('-l', '--lr', default=0.001, type=float,
                       help='Learning rate for VAE')
     args.add_argument('-ls', '--latentspace', default=4, type=float,
-                      help='Latent space dimension')    
+                      help='Latent space dimension')  
+    args.add_argument('-bs', '--batch', default=2500, type=float,
+                      help='Batch Size')   
     
     # anomaly detection paprameter
     args.add_argument('-th', '--threshold', default=0.95, type=int,
@@ -62,3 +64,4 @@ if __name__ == "__main__":
     model = CAPTOR(args,"./data","./models")
     
     model.train()
+    model.online_inference()

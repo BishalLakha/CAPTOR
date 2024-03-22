@@ -6,6 +6,7 @@ from captor.sirgn import SirGN
 from captor.loader import Loader
 from captor.vae import VariationalAutoencoder
 from captor.utils import get_frequency
+from captor.anomaly_detection import calculate_offline_performance_metrics, calculate_realtime_performance
 
 class CAPTOR:
     """_summary_
@@ -56,7 +57,7 @@ class CAPTOR:
 
 
     
-    def _get_train_node_embedding(self):
+    def _get_train_temporal_node_embedding(self):
         
         emb_size = self.model.n2
         A_prev = np.zeros((emb_size, emb_size))
@@ -64,7 +65,7 @@ class CAPTOR:
         F_prev = np.zeros((emb_size, 1))
         t_prev = 0
         
-        INITIAL_VALUES = {"A": A_prev, 'M': M_prev, "F": F_prev, "T": t_prev}
+        self.INITIAL_VALUES = {"A": A_prev, 'M': M_prev, "F": F_prev, "T": t_prev}
         self.all_embd_train = {}
         self.all_snaps_embs_train = {}
         
@@ -73,10 +74,23 @@ class CAPTOR:
             # get window and find edge frequency
             data_window = get_frequency(self.train_data_group.get_group(t))
             self.all_embd_train,current_window_emb_train = self.model.inference(data_window, self.node_feat_map, t, 
-                                                                                self.all_embd_train,INITIAL_VALUES, self.args.delta, self.args.alpha)
+                                                                    self.all_embd_train,self.INITIAL_VALUES, self.args.delta, self.args.alpha)
 
             # collect embeddings for each snapshot
             self.all_snaps_embs_train.update({t:current_window_emb_train})
+    
+    def _get_test_temporal_node_embedding(self):
+        self.all_embd_test = self.all_embd_train.copy()
+        self.all_snaps_embs_test = {}
+
+
+        for t in tqdm(self.test_t):
+            data_window = get_frequency(self.test_data_group.get_group(t))
+            self.all_embd_test, current_window_emb_test = self.model.inference(data_window, self.node_feat_map, t, self.all_embd_test,
+                                                                    self.INITIAL_VALUES, self.args.delta, self.args.alpha)
+
+            self.all_snaps_embs_test.update({t:current_window_emb_test})
+
     
     def _get_edge_embeddings(self,data_group,snaps, all_feats):
   
@@ -107,23 +121,27 @@ class CAPTOR:
     
     def train(self):
         self._train_sirgn()
-        self._get_train_node_embedding()
+        self._get_train_temporal_node_embedding()
         self.train_embs = self._get_edge_embeddings(self.train_data_group,self.train_t,self.all_snaps_embs_train)
         self._train_vae()
         
     
-    def test(self):
-        pass
+    def supervised_inference(self):
+        self._get_test_temporal_node_embedding()
+        self.test_embs = self._get_edge_embeddings(self.test_data_group,self.test_t,self.all_snaps_embs_test)
+        self.score_test = self.vae.test(self.test_embs)
+        calculate_offline_performance_metrics(self.score_test,self.label)
     
-   
-    
-    def temporal_inference(self):
-        pass
-    
-
     
     def online_inference(self):
-        pass
+        self._get_test_temporal_node_embedding()
+        self.test_embs = self._get_edge_embeddings(self.test_data_group,self.test_t,self.all_snaps_embs_test)
+        self.score_train = self.vae.test(self.train_embs)
+        self.score_test = self.vae.test(self.test_embs)
+        calculate_realtime_performance(self.score_train,self.score_test, self.args.threshold,self.label)
+        
+        
+
     
     
     
