@@ -20,4 +20,8 @@ python main.py --train True
 ```
 
 ## Data
+DARPA OpTC data: https://github.com/FiveDirections/OpTC-data
 
+LANL Authentication dataset: https://csr.lanl.gov/data/cyber1/
+
+CICIDS2017 data: https://www.unb.ca/cic/datasets/ids-2017.html
