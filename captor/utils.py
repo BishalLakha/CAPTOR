@@ -10,7 +10,10 @@ def get_batch(iterable, n=1, desc='Progress'):
 
 
 def get_frequency(df):
+    "Return a static graph along with edge frequency"
     df['frequency'] = df.groupby(['src_computer', 'dst_computer']).transform('count')
+    df = df.drop_duplicates(subset=['src_computer', 'dst_computer'])
+
     return df
 
 
